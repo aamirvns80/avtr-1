@@ -157,6 +157,46 @@ Copy the resulting `.mp4` back to your laptop to view:
 scp user@<gpu-host>:/path/to/avtr-1/demo_output.mp4 .
 ```
 
+### 6a. Full two-speaker dialogue (render both sides + stitch)
+
+A conversation has two avatars. Render each side **separately** — for each one,
+its own track is `--speech` and the other person's track is `--listen` (so it
+lip-syncs its own words and *actively listens* to the peer). Then stitch the two
+clips side by side with ffmpeg.
+
+```bash
+# Side 1 — avatar "elena" speaks speaker_1, listens to speaker_2:
+pixi run generate_offline \
+  --speech example/speaker_1.ogg \
+  --listen example/speaker_2.ogg \
+  --avatar elena  --bg plain_white --out elena.mp4
+
+# Side 2 — avatar "marcus" speaks speaker_2, listens to speaker_1 (tracks swapped):
+pixi run generate_offline \
+  --speech example/speaker_2.ogg \
+  --listen example/speaker_1.ogg \
+  --avatar marcus --bg plain_white --out marcus.mp4
+
+# Stitch both sides into one side-by-side video with mixed audio:
+pixi run ffmpeg -i elena.mp4 -i marcus.mp4 -filter_complex \
+  "[0:v][1:v]hstack=inputs=2[v];[0:a][1:a]amix=inputs=2[a]" \
+  -map "[v]" -map "[a]" dialogue.mp4
+```
+
+Notes:
+- The two tracks **must be the same length** for the sides to stay in sync (the
+  generator pads/trims per side, but matching inputs keeps lips aligned). Use
+  `--duration <seconds>` on both runs to force equal length if needed.
+- `pixi run ffmpeg ...` uses the ffmpeg from the project env (added as a dev
+  dependency); a system ffmpeg works too if you have one.
+- Pick any two avatar ids from the registry (see the list command below); they
+  don't have to be `elena` / `marcus`.
+
+```bash
+# from your LOCAL machine, fetch the stitched result:
+scp user@<gpu-host>:/path/to/avtr-1/dialogue.mp4 .
+```
+
 ---
 
 ## 7. Live interactive demo (browser + WebRTC + LLM voice)
