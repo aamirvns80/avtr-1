@@ -198,27 +198,84 @@ either works.)
 ### 7d. TURN (only if the video won't connect)
 
 WebRTC tries direct UDP first. On a cloud VM whose firewall/security-group blocks
-inbound UDP, you'll need a **TURN relay**. The demo is wired for Cloudflare's free
-Realtime TURN:
-
-```bash
-export CLOUDFLARE_TURN_KEY_ID="<Turn Key ID>"
-export CLOUDFLARE_TURN_KEY_TOKEN="<API Token>"
-pixi run interactive-demo
-```
-
-Create the TURN app at **Cloudflare dashboard → Realtime → TURN Server**. Any
-standard TURN server works too — set `TURN_URL` (+ optional `TURN_USERNAME` /
-`TURN_CREDENTIAL`) instead. The browser's connectivity card under the controls
-tells you which ICE path won (host / srflx / relay). See the README's
-"Troubleshooting → TURN server setup" for the full rationale.
+inbound UDP (almost always the case on RunPod, AWS, etc.), the **media stream**
+needs a **TURN relay** even though the page itself loads fine. Set up free
+Cloudflare TURN — the full step-by-step is in **[§8](#8-cloudflare-turn-setup-live-demo-media-relay)** below.
 
 > If you used an SSH tunnel (7b), direct UDP usually won't traverse it — configure
 > TURN, or expose the port via your provider's proxy instead of tunneling.
 
 ---
 
-## 8. Running the renderer as a standalone service (optional)
+## 8. Cloudflare TURN setup (live demo media relay)
+
+Only needed for the **live demo** when video won't connect (it almost never will
+on a cloud box without this). Free tier, no credit card. The page/signaling rides
+your provider's HTTP proxy; **TURN carries only the audio/video media.**
+
+### 8a. Create the TURN app
+
+1. Sign in to **dash.cloudflare.com**.
+2. Sidebar → **Realtime** → **TURN Server** (may appear under **Calls** /
+   **Realtime Kit** on some accounts — same feature).
+3. **Create TURN App** → name it (e.g. `avtr1-dev`) → **Create**.
+
+### 8b. Copy the two credentials
+
+On the app's detail page:
+
+- **Turn Token ID** (a.k.a. *Turn Key ID*) — short identifier, UUID-without-dashes.
+- **API Token** — long secret, **shown only once**. Copy it before leaving the page
+  (lost tokens can't be re-viewed — create a new app or roll the token).
+
+### 8c. Set them and launch
+
+```bash
+export CLOUDFLARE_TURN_KEY_ID="<Turn Token ID>"
+export CLOUDFLARE_TURN_KEY_TOKEN="<API Token>"
+
+pixi run interactive-demo --host 0.0.0.0 --port 8081
+```
+
+Each browser session mints a **fresh, short-lived** TURN credential via
+Cloudflare's API — your long-lived API Token never leaves the server.
+
+### 8d. Verify
+
+1. **Server log**, on the first browser request:
+   ```
+   ice: using Cloudflare TURN
+   ```
+   If you instead see `ice: STUN-only (no TURN credentials configured)`, the env
+   vars aren't set in the shell that launched the demo — re-export and relaunch.
+2. **Browser** — the connectivity card under the controls should show
+   **✓ relay via TURN** (the path that must pass on a cloud box).
+
+### 8e. Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| Log says `STUN-only` | Env vars not in the launching shell. `export` both, then relaunch (not just in another session's `~/.bashrc`). |
+| `Cloudflare TURN fetch failed` in log | Wrong/expired API Token, or Key ID and Token swapped. Re-copy both. |
+| Relay check fails in browser | Most common cause: the **Key ID** was pasted into `CLOUDFLARE_TURN_KEY_TOKEN` instead of the full **API Token**. |
+| TURN OK in log but no video | Check the OpenAI/Cartesia key in the UI — engine errors look like a dead stream. |
+
+### 8f. Self-hosted alternative
+
+Any standard TURN server works. Instead of the Cloudflare vars:
+
+```bash
+export TURN_URL="turn:your-coturn-host:3478"
+export TURN_USERNAME="..."      # optional
+export TURN_CREDENTIAL="..."    # optional
+```
+
+`resolve_ice_servers()` uses these verbatim (e.g. a self-hosted
+[coturn](https://github.com/coturn/coturn)).
+
+---
+
+## 9. Running the renderer as a standalone service (optional)
 
 For a multi-GPU fleet, the renderer is a plain FastAPI service:
 
@@ -233,7 +290,7 @@ via its renderer config (`single` → instance URL, `load-balanced` → the LB).
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Symptom | Cause / fix |
 | --- | --- |
@@ -249,7 +306,7 @@ via its renderer config (`single` → instance URL, `load-balanced` → the LB).
 
 ---
 
-## 10. Cost-saving tips
+## 11. Cost-saving tips
 
 - Put `$AVTR1_LOCAL_STORAGE` on a **persistent volume** so weights + engines
   survive instance restarts (downloads + engine builds are the slow parts).
