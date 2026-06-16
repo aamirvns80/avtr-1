@@ -27,6 +27,21 @@
 
 ---
 
+## 📚 Documentation
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — how AVTR-1 fits together: the
+  renderer/streamer split, end-to-end data flow, the flow-matching motion core,
+  rendering pipeline, event-bus orchestration, scheduling/timing, WebRTC, and
+  TRT engine building.
+- **[RUNNING_ON_CLOUD_GPU.md](RUNNING_ON_CLOUD_GPU.md)** — run AVTR-1 on a rented
+  NVIDIA GPU: GPU selection, install, weights, engine build, offline + two-speaker
+  generation, the live WebRTC demo, and Cloudflare TURN setup.
+- **[setup_cloud_gpu.sh](setup_cloud_gpu.sh)** — one-shot, idempotent installer
+  for a fresh Linux NVIDIA box (preflight → pixi → clone → install → download →
+  build → run commands).
+
+---
+
 ## Table of Contents
 
 1. [Quick Start](#1-quick-start)
